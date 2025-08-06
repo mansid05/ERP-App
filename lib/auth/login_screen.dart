@@ -61,41 +61,26 @@ class _LoginScreenState extends State<LoginScreen> {
       // Extract role from user data
       final String role = data['user']['role']?.toLowerCase() ?? 'teaching';
 
-      // Determine the route based on role
-      String route;
-      switch (role) {
-        case 'principal':
-          route = '/user_navigation';
-          break;
-        case 'hod':
-          route = '/user_navigation';
-          break;
-        case 'cc':
-          route = '/user_navigation';
-          break;
-        case 'facultymanagement':
-        case 'teaching':
-          route = '/user_navigation';
-          break;
-        case 'non-teaching':
-          route = '/non-teaching';
-          break;
-        case 'driver':
-          route = '/driver';
-          break;
-        case 'conductor':
-          route = '/conductor';
-          break;
-        default:
-          setState(() {
-            _error = 'Unknown role: $role. Please contact support.';
-            _isLoading = false;
-          });
-          return;
-      }
+      // Define roles that should navigate to /user_navigation
+      const validRoles = [
+        'principal',
+        'hod',
+        'cc',
+        'facultymanagement',
+        'teaching',
+      ];
 
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, route, arguments: data['user']);
+      // Check if the role is valid and navigate accordingly
+      if (validRoles.contains(role)) {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/user_navigation', arguments: data['user']);
+        }
+      } else {
+        setState(() {
+          _error = 'Unknown role: $role. Please contact support.';
+          _isLoading = false;
+        });
+        return;
       }
     } catch (err) {
       setState(() {
