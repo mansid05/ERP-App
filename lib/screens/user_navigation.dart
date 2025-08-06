@@ -1,27 +1,26 @@
-import 'package:erp_app/screens/faculty/notificaation_screen.dart';
-import 'package:erp_app/screens/faculty/profile_screen.dart';
+import 'package:erp_app/screens/common/profile_screen.dart';
 import 'package:flutter/material.dart';
+import 'common/chat_screen.dart';
+import 'common/home_screen.dart';
+import 'common/notificaation_screen.dart';
 
-import 'chat_screen.dart';
-import 'home_screen.dart';
-
-class FacultyNavigation extends StatefulWidget {
+class UserNavigation extends StatefulWidget {
   final int initialIndex;
 
-  const FacultyNavigation({super.key, this.initialIndex = 0});
+  const UserNavigation({super.key, this.initialIndex = 0});
 
   @override
-  _FacultyNavigationState createState() => _FacultyNavigationState();
+  _UserNavigationState createState() => _UserNavigationState();
 }
 
-class _FacultyNavigationState extends State<FacultyNavigation> {
+class _UserNavigationState extends State<UserNavigation> {
   late int _currentIndex;
 
   final List<Widget> _pages = [
     HomeScreen(),
     ChatScreen(),
     NotificationScreen(),
-    ProfileScreen(),
+    UserProfile(),
   ];
 
   @override
