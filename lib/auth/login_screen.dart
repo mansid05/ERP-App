@@ -65,10 +65,10 @@ class _LoginScreenState extends State<LoginScreen> {
       String route;
       switch (role) {
         case 'principal':
-          route = '/principal';
+          route = '/user_navigation';
           break;
         case 'hod':
-          route = '/hod';
+          route = '/user_navigation';
           break;
         case 'cc':
           route = '/user_navigation';
