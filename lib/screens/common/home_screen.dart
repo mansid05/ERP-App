@@ -1,4 +1,4 @@
-import 'package:erp_app/screens/course_coordinator/timetable_simple.dart';
+import 'package:erp_app/screens/cc/timetable_simple.dart';
 import 'package:erp_app/screens/principal/principal_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,9 +11,9 @@ import '../common functions/notes_documents_page.dart';
 import '../common functions/od_leave_apply_screen.dart';
 import '../common functions/pay_slip_screen.dart';
 import '../common functions/teaching_announcements.dart';
-import '../course_coordinator/cc_class_students_page.dart';
-import '../course_coordinator/cc_dashboard.dart';
-import '../course_coordinator/mark_attendance_screen.dart';
+import '../cc/cc_class_students_page.dart';
+import '../cc/cc_dashboard.dart';
+import '../cc/mark_attendance_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

@@ -13,7 +13,7 @@ class PrincipalDashboardPage extends StatefulWidget {
 }
 
 class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
-  static const String _baseUrl = 'http://192.168.1.22:5000';
+  static const String _baseUrl = 'http://192.168.1.33:5000';
   String graphFilter = 'Faculties';
   Map<String, dynamic> dashboardStats = {
     'totalFaculties': 0,
@@ -77,10 +77,7 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
       final userDataString = prefs.getString('user');
       if (userDataString == null) {
         debugPrint('No user data found in SharedPreferences');
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
-        }
+        _handleUnauthorized();
         return;
       }
 
@@ -88,10 +85,7 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
       final token = userData['token']?.toString() ?? prefs.getString('authToken') ?? '';
       if (token.isEmpty) {
         debugPrint('No token found in SharedPreferences or user data');
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
-        }
+        _handleUnauthorized();
         return;
       }
 
@@ -110,6 +104,14 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
 
       if (!mounted) return;
 
+      // Check for any non-200 responses
+      final failedResponses = responses.asMap().entries.where((entry) => entry.value.statusCode != 200);
+      if (failedResponses.isNotEmpty) {
+        final statusCodes = responses.map((r) => r.statusCode).join(', ');
+        debugPrint('Failed API responses: $statusCodes');
+        throw Exception('Failed to fetch data: $statusCodes');
+      }
+
       final facultiesData = jsonDecode(responses[0].body);
       final studentsData = jsonDecode(responses[1].body);
       final departmentsData = jsonDecode(responses[2].body);
@@ -122,113 +124,103 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
       debugPrint('Pending approvals data: $pendingApprovalsData');
       debugPrint('Timetables data: $timetablesData');
 
-      if (responses.every((res) => res.statusCode == 200)) {
-        final allDepartments = List<Map<String, dynamic>>.from(departmentsData['departmentList'] ?? []);
-        final departmentWiseData = allDepartments.map((dept) {
-          final facultyCount = (facultiesData['departmentWise'] ?? []).firstWhere(
-                (f) => f['name'] == dept['name'],
-            orElse: () => {'count': 0},
-          )['count'] ?? 0;
-          final studentCount = (studentsData['departmentWise'] ?? []).firstWhere(
-                (s) => s['name'] == dept['name'],
-            orElse: () => {'count': 0},
-          )['count'] ?? 0;
-          return {
-            'name': dept['name'],
-            'Faculties': facultyCount,
-            'Students': studentCount,
-          };
-        }).toList();
+      final allDepartments = List<Map<String, dynamic>>.from(departmentsData['departmentList'] ?? []);
+      final departmentWiseData = allDepartments.map((dept) {
+        final facultyCount = (facultiesData['departmentWise'] ?? []).firstWhere(
+              (f) => f['name'] == dept['name'],
+          orElse: () => {'count': 0},
+        )['count'] ?? 0;
+        final studentCount = (studentsData['departmentWise'] ?? []).firstWhere(
+              (s) => s['name'] == dept['name'],
+          orElse: () => {'count': 0},
+        )['count'] ?? 0;
+        return {
+          'name': dept['name'],
+          'Faculties': facultyCount,
+          'Students': studentCount,
+        };
+      }).toList();
 
-        setState(() {
-          dashboardStats = {
-            'totalFaculties': facultiesData['total'] ?? 0,
-            'totalStudents': studentsData['total'] ?? 0,
-            'totalDepartments': departmentsData['total'] ?? 0,
-            'departmentWiseData': departmentWiseData,
-            'pendingApprovals': pendingApprovalsData['totalPendingApprovals'] ?? 0,
-            'pendingApprovalsBreakdown': pendingApprovalsData['breakdown'] ?? {
-              'leaveApprovals': 0,
-              'odLeaveApprovals': 0,
-              'facultyApprovals': 0,
-              'handoverApprovals': 0,
-            },
-          };
-          timetables = {
-            'summary': timetablesData['summary'] ?? {
-              'totalTimetables': 0,
-              'totalDepartments': 0,
-              'departmentBreakdown': [],
-            },
-            'timetablesByDepartment': timetablesData['timetablesByDepartment'] ?? {},
-            'allTimetables': timetablesData['allTimetables'] ?? [],
-          };
-        });
+      setState(() {
+        dashboardStats = {
+          'totalFaculties': facultiesData['total'] ?? 0,
+          'totalStudents': studentsData['total'] ?? 0,
+          'totalDepartments': departmentsData['total'] ?? 0,
+          'departmentWiseData': departmentWiseData,
+          'pendingApprovals': pendingApprovalsData['totalPendingApprovals'] ?? 0,
+          'pendingApprovalsBreakdown': pendingApprovalsData['breakdown'] ?? {
+            'leaveApprovals': 0,
+            'odLeaveApprovals': 0,
+            'facultyApprovals': 0,
+            'handoverApprovals': 0,
+          },
+        };
+        timetables = {
+          'summary': timetablesData['summary'] ?? {
+            'totalTimetables': 0,
+            'totalDepartments': 0,
+            'departmentBreakdown': [],
+          },
+          'timetablesByDepartment': timetablesData['timetablesByDepartment'] ?? {},
+          'allTimetables': timetablesData['allTimetables'] ?? [],
+        };
+      });
 
-        try {
-          final todosRes = await http.get(
-            Uri.parse('$_baseUrl/api/dashboard/principal-todos-demo'),
-            headers: headers,
-          );
-          if (todosRes.statusCode == 200 && mounted) {
-            final todosData = jsonDecode(todosRes.body);
-            debugPrint('Todos data: $todosData');
-            setState(() {
-              todos = List<Map<String, dynamic>>.from(todosData['todos'] ?? []);
-              todoStats = todosData['stats'] ?? {
-                'total': 0,
-                'pending': 0,
-                'inProgress': 0,
-                'completed': 0,
-                'overdue': 0,
-              };
-            });
-          } else {
-            debugPrint('Todo endpoint not accessible, using empty state');
-            setState(() {
-              todos = [];
-              todoStats = {
-                'total': 0,
-                'pending': 0,
-                'inProgress': 0,
-                'completed': 0,
-                'overdue': 0,
-              };
-            });
-          }
-        } catch (todoError) {
-          debugPrint('Todo fetch error: $todoError');
-          if (mounted) {
-            setState(() {
-              todos = [];
-              todoStats = {
-                'total': 0,
-                'pending': 0,
-                'inProgress': 0,
-                'completed': 0,
-                'overdue': 0,
-              };
-            });
-          }
+      try {
+        final todosRes = await http.get(
+          Uri.parse('$_baseUrl/api/dashboard/principal-todos-demo'),
+          headers: headers,
+        );
+        if (todosRes.statusCode == 200 && mounted) {
+          final todosData = jsonDecode(todosRes.body);
+          debugPrint('Todos data: $todosData');
+          setState(() {
+            todos = List<Map<String, dynamic>>.from(todosData['todos'] ?? []);
+            todoStats = todosData['stats'] ?? {
+              'total': 0,
+              'pending': 0,
+              'inProgress': 0,
+              'completed': 0,
+              'overdue': 0,
+            };
+          });
+        } else {
+          debugPrint('Todo endpoint not accessible, status: ${todosRes.statusCode}');
+          setState(() {
+            todos = [];
+            todoStats = {
+              'total': 0,
+              'pending': 0,
+              'inProgress': 0,
+              'completed': 0,
+              'overdue': 0,
+            };
+          });
         }
-      } else {
-        if (responses.any((res) => res.statusCode == 401)) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.clear();
-          debugPrint('Unauthorized: Clearing SharedPreferences and redirecting to login');
-          await Future.delayed(const Duration(seconds: 2));
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, '/login');
-          }
+      } catch (todoError) {
+        debugPrint('Todo fetch error: $todoError');
+        if (mounted) {
+          setState(() {
+            todos = [];
+            todoStats = {
+              'total': 0,
+              'pending': 0,
+              'inProgress': 0,
+              'completed': 0,
+              'overdue': 0,
+            };
+          });
         }
-        throw Exception('Failed to fetch data: ${responses.map((r) => r.statusCode).join(', ')}');
       }
     } catch (err) {
       debugPrint('Error fetching data: $err');
       if (mounted) {
         setState(() {
-          error = err.toString();
+          error = 'Failed to load data. Please try again later.';
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error!)),
+        );
       }
     } finally {
       if (mounted) {
@@ -236,6 +228,15 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
           isLoading = false;
         });
       }
+    }
+  }
+
+  void _handleUnauthorized() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    debugPrint('Unauthorized: Clearing SharedPreferences and redirecting to login');
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
@@ -273,6 +274,9 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
           };
           showAddTodo = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task added successfully')),
+        );
       } else {
         throw Exception('Failed to add todo: ${response.statusCode}');
       }
@@ -308,15 +312,16 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
           throw Exception('Todo not found');
         }
         setState(() {
-          todos = todos.map((todo) {
-            return todo['_id'] == id ? updatedTodo : todo;
-          }).toList();
+          todos = todos.map((todo) => todo['_id'] == id ? updatedTodo : todo).toList();
           todoStats = {
             ...todoStats,
             oldTodo['status'].toLowerCase().replaceAll(' ', ''): (todoStats[oldTodo['status'].toLowerCase().replaceAll(' ', '')] as int) - 1,
             status.toLowerCase().replaceAll(' ', ''): (todoStats[status.toLowerCase().replaceAll(' ', '')] as int) + 1,
           };
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Task updated to $status')),
+        );
       } else {
         throw Exception('Failed to update todo: ${response.statusCode}');
       }
@@ -353,6 +358,9 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
             deletedTodo['status'].toLowerCase().replaceAll(' ', ''): (todoStats[deletedTodo['status'].toLowerCase().replaceAll(' ', '')] as int) - 1,
           };
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Task deleted successfully')),
+        );
       } else {
         throw Exception('Failed to delete todo: ${response.statusCode}');
       }
@@ -777,7 +785,7 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
                                         getTooltipColor: (group) => const Color(0xFF1F2937).withOpacity(0.8),
                                         getTooltipItem: (group, groupIndex, rod, rodIndex) {
                                           final dept = dashboardStats['departmentWiseData'][groupIndex]['name'] ?? 'Unknown';
-                                          final value = rod.toY;
+                                          final value = rod.toY.toInt();
                                           return BarTooltipItem(
                                             '$dept\n${graphFilter}: $value',
                                             TextStyle(
@@ -1532,7 +1540,7 @@ class _PrincipalDashboardPageState extends State<PrincipalDashboardPage> {
           Text(
             value,
             style: TextStyle(
-              fontSize: isMobile ? 18.0 : 24.0, // Use fontSizeLarge equivalent
+              fontSize: isMobile ? 18.0 : 24.0,
               fontWeight: FontWeight.bold,
               color: color,
             ),
