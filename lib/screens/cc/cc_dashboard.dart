@@ -15,7 +15,7 @@ class CCDashboard extends StatefulWidget {
 }
 
 class _CCDashboardState extends State<CCDashboard> {
-  static const String _baseUrl = 'http://192.168.1.33:5000';
+  static const String _baseUrl = 'http://192.168.1.22:5000';
   bool loading = true;
   String? error;
   Map<String, dynamic>? userData;
